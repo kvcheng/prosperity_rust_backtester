@@ -3,66 +3,66 @@ from collections import deque
 import math
 from datamodel import Order, TradingState
 
-# ---------------------------------------------------------------------------
-# VELVETFRUIT_EXTRACT — Improved Market-Making Strategy
-#
-# Problems in the original (round3_trader9.py):
-#   1. DEFAULT_MID = 5250 hardcoded — same cold-start bug as Hydrogel.
-#      If the real market opens away from 5250, early quotes are mis-placed.
-#   2. EMA alpha = 0.10 (very slow). If VFE trends, MM quotes lag and
-#      the ask side gets lifted at a loss, just like Hydrogel.
-#   3. Skew formula uses min/max clamps against best quotes — same sign
-#      bug identified in Hydrogel, causing bids above fair when short.
-#   4. No take step — only passive quotes, so mispriced resting orders
-#      from counterparties are never aggressively captured.
-#   5. No trend awareness — no OLS or fast/slow EMA to detect direction.
-#   6. No counterparty signal — Round 4 exposes buyer/seller IDs.
-#
-# Fixes / additions:
-#   - Cold-start: _fair_ema seeded from first real mid, not hardcoded.
-#   - Dynamic alpha: speeds up EMA in volatile/wide-spread regimes.
-#   - Trend component: OLS slope blended into fair value (proven approach
-#     from IntarianPepperRootStrategy in round1_trader.py).
-#   - Take step: aggress asks/bids that are clearly mispriced vs fair.
-#   - Corrected skew formula: bid = fair - half - skew,
-#                              ask = fair + half - skew  (clean, no clamps).
-#   - Counterparty signal: Mark's net flow nudges fair value.
-# ---------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 PRODUCT        = "VELVETFRUIT_EXTRACT"
 POSITION_LIMIT = 200
 
-# EMA / trend
+
 TREND_WINDOW   = 40
 TREND_HORIZON  = 3.0
 
-# Take
-TAKE_EDGE      = 1.5   # VFE spreads are tighter than Hydrogel, use smaller edge
 
-# Make
+TAKE_EDGE      = 1.5   
+
+
 MM_CLIP        = 15
 MM_SKEW        = 0.06
 SOFT_LONG      =  130
 SOFT_SHORT     = -100
 
-# Counterparty (Round 4)
+
 MARK_ID        = "Mark"
 MARK_WINDOW    = 20
-MARK_SCALE     = 0.3   # VFE is a calmer product; smaller adjustment
+MARK_SCALE     = 0.3   
 
 
 class VelvetfruitExtractStrategy:
 
     def __init__(self):
-        self._fair_ema   = None       # cold-start: None until first tick
+        self._fair_ema   = None       
         self._spread_ema = None
         self._move_ema   = 1.0
         self._last_mid   = None
         self._tick       = 0
-        self._mid_hist   = deque(maxlen=TREND_WINDOW)   # (tick, mid)
+        self._mid_hist   = deque(maxlen=TREND_WINDOW)   
         self._mark_buf   = deque(maxlen=MARK_WINDOW)
 
-    # ------------------------------------------------------------------
+    
     def _observe_mid(self, od):
         b, a = od.buy_orders, od.sell_orders
         if b and a:   return (max(b) + min(a)) / 2.0
@@ -81,7 +81,7 @@ class VelvetfruitExtractStrategy:
             if self._last_mid is not None:
                 self._move_ema = 0.85*self._move_ema + 0.15*abs(mid - self._last_mid)
             self._last_mid = mid
-            # Cold-start fix
+            
             if self._fair_ema is None:
                 self._fair_ema = mid
             else:
@@ -114,7 +114,7 @@ class VelvetfruitExtractStrategy:
         cp_adj     = (sum(self._mark_buf)/100.0) * MARK_SCALE
         return base + cp_adj
 
-    # ------------------------------------------------------------------
+    
     def _take(self, od, position, fair):
         orders = []
         lim = POSITION_LIMIT
@@ -174,7 +174,7 @@ class VelvetfruitExtractStrategy:
         if aq > 0: orders.append(Order(PRODUCT, ask_px, -aq))
         return orders
 
-    # ------------------------------------------------------------------
+    
     def trade(self, od, position: int, timestamp: int, mkt: list):
         self._ingest_trades(mkt)
         mid  = self._update_stats(od)
@@ -185,9 +185,9 @@ class VelvetfruitExtractStrategy:
         return take + self._make(od, pos2, fair)
 
 
-# ---------------------------------------------------------------------------
-# Minimal Trader (VFE only — for isolated backtesting)
-# ---------------------------------------------------------------------------
+
+
+
 class Trader:
     def __init__(self):
         self.vfe = VelvetfruitExtractStrategy()

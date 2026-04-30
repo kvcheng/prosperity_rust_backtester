@@ -76,17 +76,17 @@ class Trader:
 
     TRADE_PRODUCTS = set(SNACKS + EXTRA_PRODUCTS)
 
-    # State/tuning
+    
     HIST_LEN = 30
     BASE_ALPHA = 0.10
     TREND_HORIZON = 2.5
 
-    # Aggressiveness
+    
     QUOTE_SIZE = 2
     INV_SKEW_TICKS = 0.45
-    GROUP_EXPOSURE_SKEW = 0.18  # skew based on net snack exposure
+    GROUP_EXPOSURE_SKEW = 0.18  
 
-    # Per-product caution list based on bundled round5 behaviour.
+    
     LOW_CONF_SNACKS = {
         "SNACKPACK_PISTACHIO",
         "SNACKPACK_STRAWBERRY",
@@ -104,14 +104,14 @@ class Trader:
     PEBBLES_QUOTE_SIZE = 1
     PEBBLES_INV_SKEW_TICKS = 0.20
 
-    # Cross-sectional mean reversion strength for snack cluster fair values
+    
     SNACK_INDEX_WEIGHT = 0.35
 
-    # Complement anchor smoothing and weight
+    
     SUM_ANCHOR_ALPHA = 0.03
     CHOC_VAN_IMPLIED_WEIGHT = 0.55
 
-    # End-of-day risk reduction
+    
     FLATTEN_TS = 995_000
 
     def run(self, state: TradingState):
@@ -119,7 +119,7 @@ class Trader:
 
         mids: Dict[str, float] = {}
 
-        # Update per-product stats.
+        
         for product, order_depth in state.order_depths.items():
             if not self._is_round5(product) or product not in self.TRADE_PRODUCTS:
                 continue
@@ -132,13 +132,13 @@ class Trader:
             mids[product] = mid
             self._update_product_stats(data, product, state.timestamp, mid, best_ask - best_bid)
 
-        # Update CHOC/VAN complement sum anchor.
+        
         if self.CHOC in mids and self.VAN in mids:
             pair = data.setdefault("pair", {})
             sum_mid = mids[self.CHOC] + mids[self.VAN]
             pair["choc_van_sum_ema"] = _ema(pair.get("choc_van_sum_ema"), sum_mid, self.SUM_ANCHOR_ALPHA)
 
-        # Precompute snack "index" fair: mean of available snack EMA mids.
+        
         snack_emas: List[float] = []
         for p in self.SNACKS:
             v = data.get("p", {}).get(p, {}).get("ema_mid")
@@ -170,11 +170,11 @@ class Trader:
 
             fair = self._fair_value(data, product)
 
-            # Snack index anchoring: pull each snack's fair towards the cluster index.
+            
             if product in self.SNACKS and snack_index is not None:
                 fair = (1.0 - self.SNACK_INDEX_WEIGHT) * fair + self.SNACK_INDEX_WEIGHT * snack_index
 
-            # CHOC/VAN complement implied fair.
+            
             sum_anchor = data.get("pair", {}).get("choc_van_sum_ema")
             if sum_anchor is not None:
                 if product == self.CHOC and self.VAN in mids:
@@ -186,13 +186,13 @@ class Trader:
 
             orders: List[Order] = []
 
-            # Taker: only when best price is far from fair.
-            # For PEBBLES_XL, disable taker entirely (it was the main drawdown driver).
+            
+            
             if product != self.PEBBLES_PRODUCT and product not in self.LOW_CONF_SNACKS:
                 orders.extend(self._take(order_depth, product, position, fair))
             position2 = position + sum(o.quantity for o in orders)
 
-            # Maker: skew by own inventory; for snacks also skew by net group exposure.
+            
             effective_position = position2
             if product in self.SNACKS and snack_exposure != 0:
                 effective_position = int(round(position2 + self.GROUP_EXPOSURE_SKEW * snack_exposure))
@@ -206,7 +206,7 @@ class Trader:
         trader_data_out = json.dumps(data, separators=(",", ":"))
         return orders_by_product, 0, trader_data_out
 
-    # ------------------------------------------------------------------ state
+    
     def _load_state(self, trader_data: str):
         if not trader_data:
             return {"p": {}, "pair": {}}
@@ -258,7 +258,7 @@ class Trader:
         slope = float(pdata.get("slope") or 0.0)
         return float(ema_mid) + slope * self.TREND_HORIZON
 
-    # ------------------------------------------------------------------ orders
+    
     def _flatten(self, od: OrderDepth, product: str, position: int) -> List[Order]:
         best_bid, best_ask = _best_bid_ask(od)
         if position == 0 or best_bid is None or best_ask is None:
@@ -334,11 +334,6 @@ class Trader:
         return orders
 
     def _make_pebbles(self, od: OrderDepth, product: str, position: int, fair: float) -> List[Order]:
-        """More conservative maker for PEBBLES_XL.
-
-        - Smaller quote size.
-        - One-sided quoting to reduce inventory when position != 0.
-        """
         best_bid, best_ask = _best_bid_ask(od)
         if best_bid is None or best_ask is None or best_ask <= best_bid:
             return []
@@ -368,7 +363,7 @@ class Trader:
 
         orders: List[Order] = []
 
-        # One-sided inventory reduction.
+        
         if position > 0:
             if sell_qty > 0:
                 orders.append(Order(product, ask_px, -sell_qty))
@@ -378,7 +373,7 @@ class Trader:
                 orders.append(Order(product, bid_px, buy_qty))
             return orders
 
-        # Flat: quote both sides.
+        
         if buy_qty > 0:
             orders.append(Order(product, bid_px, buy_qty))
         if sell_qty > 0:

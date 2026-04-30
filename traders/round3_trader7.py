@@ -36,10 +36,10 @@ TV_SEED: Dict[int, float] = {
     6500:  0.5,
 }
 
-# Entry thresholds = p90 of residual distribution per strike.
-# Must exceed full spread to guarantee positive EV per trade.
-#   K=5300: resid p90 = 6.65, spread = 2.1  → net edge ≈ 4.5/trade
-#   K=5400: resid p90 = 3.17, spread = 1.4  → net edge ≈ 1.8/trade
+
+
+
+
 ENTRY_THRESH: Dict[int, float] = {
     5300: 6.5,
     5400: 3.2,

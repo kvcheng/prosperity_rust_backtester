@@ -5,36 +5,36 @@ import math
 
 from datamodel import Order, TradingState
 
-# ---------------------------------------------------------------------------
-# Product constants
-# ---------------------------------------------------------------------------
+
+
+
 ALL_STRIKES   = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
-SCALP_STRIKES = [5300, 5400]   # voucher strikes targeted for edge-harvesting
+SCALP_STRIKES = [5300, 5400]   
 
 VFE_LIMIT     = 200
 HYDROGEL_LIMIT = 200
 OPTION_LIMIT  = 300
 
-# ── Hydrogel tuning ─────────────────────────────────────────────────────────
+
 HYDRO_EMA_ALPHA   = 0.15
-HYDRO_TAKE_EDGE   = 2        # min edge (ticks) required to aggress
-HYDRO_SKEW        = 0.04     # price offset per unit of inventory
-HYDRO_CLIP        = 30       # max qty per resting order
-HYDRO_HEAVY_POS   = 150      # widen quotes by 2 ticks when |pos| > this
+HYDRO_TAKE_EDGE   = 2        
+HYDRO_SKEW        = 0.04     
+HYDRO_CLIP        = 30       
+HYDRO_HEAVY_POS   = 150      
 HYDRO_SOFT_LONG   = 160
 HYDRO_SOFT_SHORT  = -120
 HYDRO_MAX_POST    = 30
-HYDRO_HALF_SPREAD = 4        # fallback half-spread when book is thin
+HYDRO_HALF_SPREAD = 4        
 
-# ── VFE tuning ───────────────────────────────────────────────────────────────
+
 VFE_MM_CLIP  = 15
 VFE_MM_SKEW  = 0.06
 
-# ── Options tuning ───────────────────────────────────────────────────────────
+
 TV_DEQUE_LEN = 500
 ORDER_SIZE   = 10
 
-# Time-value seeds from historical data analysis
+
 TV_SEED = {
     4000: 0.0,
     4500: 0.0,
@@ -48,16 +48,16 @@ TV_SEED = {
     6500: 0.5,
 }
 
-# Minimum edge (in time-value units) required to trade each strike
+
 ENTRY_THRESH = {
     5300: 6.5,
     5400: 3.2,
 }
 
 
-# ===========================================================================
-# HYDROGEL_PACK  –  EMA fair value + trend slope, no counterparty signals
-# ===========================================================================
+
+
+
 class HydrogelStrategy:
     PRODUCT = "HYDROGEL_PACK"
     DEFAULT_FAIR = 9990.0
@@ -70,7 +70,7 @@ class HydrogelStrategy:
         self.spread_ema   = None
         self.last_mid     = None
 
-    # ── internal helpers ────────────────────────────────────────────────────
+    
     def _observe_mid(self, od):
         b, a = od.buy_orders, od.sell_orders
         if b and a:   return (max(b) + min(a)) / 2.0
@@ -120,7 +120,7 @@ class HydrogelStrategy:
         trend_fair = self.ema_mid + trend * 3.0
         return (0.7 * self.ema_mid + 0.3 * trend_fair) if mid is not None else trend_fair
 
-    # ── take step ───────────────────────────────────────────────────────────
+    
     def _take(self, od, position: int, timestamp: int) -> List[Order]:
         orders: List[Order] = []
         fair  = self.fair_value(od, timestamp)
@@ -146,7 +146,7 @@ class HydrogelStrategy:
                 orders.append(Order(self.PRODUCT, bid, -qty)); position -= qty
         return orders
 
-    # ── make step ───────────────────────────────────────────────────────────
+    
     def _make(self, od, position: int, timestamp: int) -> List[Order]:
         orders: List[Order] = []
         fair = self.fair_value(od, timestamp)
@@ -177,7 +177,7 @@ class HydrogelStrategy:
         bq = min(HYDRO_MAX_POST, max(0, lim - position))
         aq = min(HYDRO_MAX_POST, max(0, lim + position))
 
-        # Soft inventory limits: lean aggressively to flatten
+        
         if position >= HYDRO_SOFT_LONG:
             ask_px  = min(ask_px, int(round(fair)))
             aq      = min(max(1, position), HYDRO_MAX_POST + 20)
@@ -187,7 +187,7 @@ class HydrogelStrategy:
             bq      = min(max(1, abs(position)), HYDRO_MAX_POST + 20)
             aq      = min(aq, 4)
 
-        # Widen quotes when carrying heavy inventory
+        
         if position > HYDRO_HEAVY_POS:  ask_px += 2
         if position < -HYDRO_HEAVY_POS: bid_px -= 2
 
@@ -201,9 +201,9 @@ class HydrogelStrategy:
         return take + self._make(od, pos, timestamp)
 
 
-# ===========================================================================
-# VELVETFRUIT_EXTRACT  –  slow-EMA passive market maker (from round3_trader9)
-# ===========================================================================
+
+
+
 class VFEStrategy:
     PRODUCT     = "VELVETFRUIT_EXTRACT"
     DEFAULT_MID = 5250.0
@@ -247,9 +247,9 @@ class VFEStrategy:
         return orders
 
 
-# ===========================================================================
-# VELVETFRUIT_EXTRACT_VOUCHER  –  time-value mean reversion (from round3_trader9)
-# ===========================================================================
+
+
+
 class OptionsDeskStrategy:
     def __init__(self, vfe: VFEStrategy):
         self.vfe = vfe
@@ -302,9 +302,9 @@ class OptionsDeskStrategy:
         return result
 
 
-# ===========================================================================
-# Trader entry point
-# ===========================================================================
+
+
+
 class Trader:
     def __init__(self):
         self.hydrogel = HydrogelStrategy()
@@ -316,26 +316,26 @@ class Trader:
         od  = state.order_depths
         pos = state.position
 
-        # # VFE EMA must be updated before options desk reads vfe.mid()
+        
         if "VELVETFRUIT_EXTRACT" in od:
             self.vfe.update_ema(od["VELVETFRUIT_EXTRACT"])
 
-        # # # Options desk
-        # # result.update(self.options.trade(od, pos))
+        
+        
 
-        # # # VFE market making
+        
         if "VELVETFRUIT_EXTRACT" in od:
             result["VELVETFRUIT_EXTRACT"] = self.vfe.trade(
                 od["VELVETFRUIT_EXTRACT"],
                 pos.get("VELVETFRUIT_EXTRACT", 0),
             )
 
-        # # Hydrogel market making
-        # # if "HYDROGEL_PACK" in od:
-        # #     result["HYDROGEL_PACK"] = self.hydrogel.trade(
-        # #         od["HYDROGEL_PACK"],
-        # #         pos.get("HYDROGEL_PACK", 0),
-        # #         state.timestamp,
-        # #     )
+        
+        
+        
+        
+        
+        
+        
 
         return result, 0, ""

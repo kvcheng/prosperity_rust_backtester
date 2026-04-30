@@ -7,28 +7,28 @@ from datamodel import Order, TradingState
 
 
 ALL_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
-SCALP_STRIKES = [5300, 5400]  # These are the voucher strike prices that I thought were worth chasing for
+SCALP_STRIKES = [5300, 5400]  
 
 VFE_LIMIT = 200
 HYDROGEL_LIMIT = 200
 OPTION_LIMIT = 200
 
-# Hydrogel variables, using the EMA as a fair value.
+
 HYDRO_CLIP = 30
 HYDRO_SKEW = 0.10
 HYDRO_TAKE_EDGE = 2
 HYDRO_EMA_ALPHA = 0.15
-HYDRO_HEAVY_POS = 100  # widen quotes by 2 ticks when |pos| > this
+HYDRO_HEAVY_POS = 100  
 
-# VFE passive MM, using a slow EMA as fair value and a fast EMA for mean reversion signals
+
 VFE_MM_CLIP = 15
 VFE_MM_SKEW = 0.06
 
-# Options variables
+
 TV_DEQUE_LEN = 500
 ORDER_SIZE = 10
 
-# The time value starting points for each strike price from historical data. 
+
 TV_SEED = {
     4000: 0.0,
     4500: 0.0,
@@ -42,7 +42,7 @@ TV_SEED = {
     6500: 0.5,
 }
 
-# Thresholds for the options, as time values. 
+
 ENTRY_THRESH = {
     5300: 6.5,
     5400: 3.2,

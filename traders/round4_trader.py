@@ -3,45 +3,29 @@ from collections import deque
 from datamodel import Order, TradingState
 
 
-# ---------------------------------------------------------------------------
-# Known counterparty IDs harvested from Round-4 historical trade data.
-# "MARK" (commonly "Mark") is typically a noise-trader / market-taker who
-# crosses the spread and telegraphs short-term directional pressure.
-# Observing whether Mark is net-buying or net-selling over a rolling window
-# gives a cheap, low-latency signal that we can layer on top of the standard
-# market-making fair-value estimate.
-# ---------------------------------------------------------------------------
-MARK_ID = "Mark"          # Adjust to exact ID seen in the data if different
+
+
+
+
+
+
+
+
+MARK_ID = "Mark"          
 
 
 class HydrogelPackStrategy:
-    """
-    Market-making strategy for HYDROGEL_PACK (position limit 200).
-
-    Core design
-    -----------
-    1. Fair-value estimation  – EMA of mid-price blended with a short-horizon
-       linear-regression trend (same pattern proven in IntarianPepperRoot).
-    2. Counterparty signal    – tracks Mark's net signed volume over a rolling
-       window.  A strong buy signal from Mark shifts the fair-value estimate
-       upward; a strong sell signal shifts it downward.
-    3. Take step              – lift cheap asks / hit expensive bids when
-       price is sufficiently mis-valued relative to our fair-value estimate.
-    4. Make step              – post resting bid/ask around fair value with
-       inventory skew to stay flat on average.
-    """
-
     POSITION_LIMIT   = 200
-    DEFAULT_START_FAIR = 2000.0   # placeholder; overwritten on first tick
+    DEFAULT_START_FAIR = 2000.0   
     DEFAULT_HALF_SPREAD = 4
-    INVENTORY_SKEW   = 0.08       # price offset per unit of inventory
-    MAX_POST_SIZE    = 30         # max qty per resting order
+    INVENTORY_SKEW   = 0.08       
+    MAX_POST_SIZE    = 30         
     SOFT_LONG        = 120
     SOFT_SHORT       = -80
 
-    # Counterparty signal parameters
-    MARK_WINDOW      = 20         # how many trades to remember
-    MARK_SIGNAL_SCALE = 0.4       # how many price units per 100 net Mark volume
+    
+    MARK_WINDOW      = 20         
+    MARK_SIGNAL_SCALE = 0.4       
 
     def __init__(self):
         self.mid_history  = deque(maxlen=40)
@@ -51,12 +35,12 @@ class HydrogelPackStrategy:
         self.spread_ema   = None
         self.last_mid     = None
 
-        # Ring-buffer of (signed_qty) seen from Mark
+        
         self.mark_trades  = deque(maxlen=self.MARK_WINDOW)
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
+    
+    
+    
     def _observe_mid(self, od):
         bids, asks = od.buy_orders, od.sell_orders
         if bids and asks:
@@ -104,27 +88,18 @@ class HydrogelPackStrategy:
         return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / denom
 
     def _mark_signal(self):
-        """
-        Returns a signed net volume from Mark over the recent window.
-        Positive → Mark has been net buying (price likely to rise).
-        Negative → Mark has been net selling.
-        """
         return sum(self.mark_trades)
 
     def _ingest_market_trades(self, market_trades):
-        """
-        Scan the list of recent trades for Mark's activity and record
-        signed quantity (positive = Mark bought, negative = Mark sold).
-        """
         for trade in market_trades:
             if trade.buyer == MARK_ID:
                 self.mark_trades.append(trade.quantity)
             elif trade.seller == MARK_ID:
                 self.mark_trades.append(-trade.quantity)
 
-    # ------------------------------------------------------------------
-    # Fair value
-    # ------------------------------------------------------------------
+    
+    
+    
     def fair_value(self, od, timestamp):
         mid = self._update_book_stats(od, timestamp)
 
@@ -139,15 +114,15 @@ class HydrogelPackStrategy:
         trend_fair = self.ema_mid + trend * 3.0
         base_fair  = (0.7 * self.ema_mid + 0.3 * trend_fair) if mid is not None else trend_fair
 
-        # Counterparty adjustment
+        
         net_mark_vol = self._mark_signal()
         cp_adjustment = (net_mark_vol / 100.0) * self.MARK_SIGNAL_SCALE
 
         return base_fair + cp_adjustment
 
-    # ------------------------------------------------------------------
-    # Take (aggress mis-priced resting orders)
-    # ------------------------------------------------------------------
+    
+    
+    
     def take(self, od, position, timestamp):
         orders = []
         fair   = self.fair_value(od, timestamp)
@@ -187,9 +162,9 @@ class HydrogelPackStrategy:
 
         return orders
 
-    # ------------------------------------------------------------------
-    # Make (post resting quotes)
-    # ------------------------------------------------------------------
+    
+    
+    
     def make(self, od, position, timestamp):
         orders = []
         fair   = self.fair_value(od, timestamp)
@@ -209,7 +184,7 @@ class HydrogelPackStrategy:
         bid_price = int(round(fair - half_spread - skew))
         ask_price = int(round(fair + half_spread - skew))
 
-        # Tighten quotes toward best prices if available
+        
         if best_bid is not None and best_bid < fair:
             bid_price = max(bid_price, best_bid + 1)
         elif best_bid is not None:
@@ -226,7 +201,7 @@ class HydrogelPackStrategy:
         buy_qty  = min(self.MAX_POST_SIZE, max(0, limit - position))
         sell_qty = min(self.MAX_POST_SIZE, max(0, limit + position))
 
-        # Soft inventory limits: lean aggressively to flatten
+        
         if position >= self.SOFT_LONG:
             ask_price = min(ask_price, int(round(fair)))
             sell_qty  = min(max(1, position), self.MAX_POST_SIZE + 20)
@@ -243,9 +218,9 @@ class HydrogelPackStrategy:
 
         return orders
 
-    # ------------------------------------------------------------------
-    # Main entry
-    # ------------------------------------------------------------------
+    
+    
+    
     def trade(self, od, position, timestamp, market_trades):
         self._ingest_market_trades(market_trades)
         take_orders = self.take(od, position, timestamp)
@@ -254,9 +229,9 @@ class HydrogelPackStrategy:
         return take_orders + make_orders
 
 
-# ---------------------------------------------------------------------------
-# Trader class (to be extended with VELVETFRUIT strategies in later steps)
-# ---------------------------------------------------------------------------
+
+
+
 class Trader:
     def __init__(self):
         self.hydrogel = HydrogelPackStrategy()

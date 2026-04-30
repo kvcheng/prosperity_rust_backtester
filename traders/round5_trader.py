@@ -90,7 +90,7 @@ class Trader:
         posa = state.position.get(a, 0)
         posb = state.position.get(b, 0)
 
-        # If one side is missing liquidity, do nothing rather than legging aggressively.
+        
         ask_a, ask_a_qty = self.best_ask(oda)
         bid_a, bid_a_qty = self.best_bid(oda)
         ask_b, ask_b_qty = self.best_ask(odb)
@@ -98,15 +98,15 @@ class Trader:
         if None in (ask_a, bid_a, ask_b, bid_b):
             return
 
-        # Exit logic first.
+        
         if abs(z) < self.exit_z or abs(z) > self.stop_z:
             self.flatten_one(a, oda, posa, result)
             self.flatten_one(b, odb, posb, result)
             return
 
-        # Enter only as a hedged pair.
+        
         if z > self.entry_z:
-            # a rich vs b: short a, long b
+            
             qty = min(
                 self.sell_capacity(posa),
                 self.buy_capacity(posb),
@@ -118,7 +118,7 @@ class Trader:
                 self.append_order(result, a, bid_a, -qty)
                 self.append_order(result, b, ask_b, qty)
         elif z < -self.entry_z:
-            # a cheap vs b: long a, short b
+            
             qty = min(
                 self.buy_capacity(posa),
                 self.sell_capacity(posb),

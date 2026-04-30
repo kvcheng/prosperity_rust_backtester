@@ -45,16 +45,6 @@ def _linreg_slope(xs: List[float], ys: List[float]) -> float:
 
 
 class Trader:
-    """Round 5 trader.
-
-    Design goals:
-    - Trade ONLY round 5 products (position limit 10).
-    - Prefer passive market making on consistently wide-spread products.
-    - Use a complement relationship for SNACKPACK_CHOCOLATE + SNACKPACK_VANILLA
-      (their sum is unusually stable in the bundled round5 data) to improve fair values.
-    - Keep risk small; flatten positions near end-of-day.
-    """
-
     ROUND5_PREFIXES = (
         "GALAXY_SOUNDS_",
         "SLEEP_POD_",
@@ -70,36 +60,36 @@ class Trader:
 
     LIMIT = 10
 
-    # Focus on the widest-spread products (based on datasets/round5 day2-4).
+    
     TRADE_PRODUCTS = {
         "SNACKPACK_CHOCOLATE",
         "SNACKPACK_VANILLA",
     }
 
-    # Complement pair (stable sum): use an EMA of (midA+midB) as the anchor.
+    
     CHOC = "SNACKPACK_CHOCOLATE"
     VAN = "SNACKPACK_VANILLA"
 
-    # State/tuning
+    
     HIST_LEN = 20
     BASE_ALPHA = 0.12
     TREND_HORIZON = 3.0
 
-    # Inventory control / sizing (tight because limit is small)
+    
     QUOTE_SIZE = 1
-    INV_SKEW_TICKS = 0.5  # ticks of skew per 1 unit of inventory
-    PAIR_EXPOSURE_SKEW = 0.3  # additional skew based on (pos_choc + pos_van)
+    INV_SKEW_TICKS = 0.5  
+    PAIR_EXPOSURE_SKEW = 0.3  
 
-    # End-of-day risk reduction
+    
     FLATTEN_TS = 995_000
 
     def run(self, state: TradingState):
         data = self._load_state(state.traderData)
 
-        # First pass: update fair value stats and capture mids for pair logic.
+        
         mids: Dict[str, float] = {}
         books: Dict[str, Tuple[Optional[int], Optional[int], int]] = {}
-        # books[product] = (best_bid, best_ask, spread)
+        
 
         for product, order_depth in state.order_depths.items():
             if not self._is_round5(product):
@@ -122,12 +112,12 @@ class Trader:
 
             self._update_product_stats(data, product, state.timestamp, mid, best_ask - best_bid)
 
-        # Update complement anchor if we have both mids.
+        
         if self.CHOC in mids and self.VAN in mids:
             sum_mid = mids[self.CHOC] + mids[self.VAN]
             data.setdefault("pair", {})
             pair = data["pair"]
-            # The sum appears relatively stable; use a slow anchor.
+            
             pair["choc_van_sum_ema"] = _ema(pair.get("choc_van_sum_ema"), sum_mid, 0.02)
 
         orders_by_product: Dict[str, List[Order]] = {}
@@ -148,12 +138,12 @@ class Trader:
 
             fair = self._fair_value(data, product)
 
-            # Pair exposure (keep the combined CHOC+VAN position near 0).
+            
             pair_exposure = 0
             if product in (self.CHOC, self.VAN):
                 pair_exposure = int(state.position.get(self.CHOC, 0)) + int(state.position.get(self.VAN, 0))
 
-            # Pair-implied fair for CHOC/VAN.
+            
             pair = data.get("pair", {})
             sum_anchor = pair.get("choc_van_sum_ema")
             if sum_anchor is not None:
@@ -170,11 +160,11 @@ class Trader:
 
             orders: List[Order] = []
 
-            # Opportunistic taker only on large dislocations.
+            
             orders.extend(self._take(order_depth, product, position, fair))
             position2 = position + sum(o.quantity for o in orders)
 
-            # Passive maker inside the spread with inventory skew.
+            
             effective_position = position2
             if product in (self.CHOC, self.VAN) and pair_exposure != 0:
                 effective_position = int(round(position2 + self.PAIR_EXPOSURE_SKEW * pair_exposure))
@@ -185,9 +175,9 @@ class Trader:
         trader_data_out = json.dumps(data, separators=(",", ":"))
         return orders_by_product, 0, trader_data_out
 
-    # ---------------------------------------------------------------------
-    # Internal state
-    # ---------------------------------------------------------------------
+    
+    
+    
 
     def _load_state(self, trader_data: str):
         if not trader_data:
@@ -205,7 +195,7 @@ class Trader:
     def _update_product_stats(self, data, product: str, timestamp: int, mid: float, spread: int):
         pdata = data.setdefault("p", {}).setdefault(product, {})
 
-        # Time axis is scaled down so slopes are in "ticks per ~100 time units".
+        
         t = timestamp / 100.0
 
         ts_hist = pdata.get("ts") or []
@@ -226,7 +216,7 @@ class Trader:
 
         pdata["spread_ema"] = _ema(pdata.get("spread_ema"), float(spread), 0.10)
 
-        # Dynamic alpha: faster when spread/movement larger.
+        
         move_ema = float(pdata.get("move_ema") or 1.0)
         spread_ema = float(pdata.get("spread_ema") or spread)
         alpha = self.BASE_ALPHA + min(0.10, spread_ema / 200.0) + min(0.10, move_ema / 100.0)
@@ -235,7 +225,7 @@ class Trader:
         pdata["ema_mid"] = _ema(pdata.get("ema_mid"), mid, alpha)
         pdata["alpha"] = alpha
 
-        # Cache trend slope for use in fair-value computation.
+        
         pdata["slope"] = _linreg_slope(ts_hist, mid_hist)
 
     def _fair_value(self, data, product: str) -> float:
@@ -244,12 +234,12 @@ class Trader:
         if ema_mid is None:
             return 10_000.0
         slope = float(pdata.get("slope") or 0.0)
-        # Slight trend look-ahead to reduce adverse selection during drifts.
+        
         return float(ema_mid) + slope * self.TREND_HORIZON
 
-    # ---------------------------------------------------------------------
-    # Order generation
-    # ---------------------------------------------------------------------
+    
+    
+    
 
     def _flatten(self, od: OrderDepth, product: str, position: int) -> List[Order]:
         best_bid, best_ask = _best_bid_ask(od)
@@ -270,7 +260,7 @@ class Trader:
 
         orders: List[Order] = []
 
-        # Buy if ask is far below fair.
+        
         if best_ask <= fair - take_edge and position < self.LIMIT:
             ask_vol = max(0, -int(od.sell_orders.get(best_ask, 0)))
             qty = min(self.QUOTE_SIZE, ask_vol, self.LIMIT - position)
@@ -278,7 +268,7 @@ class Trader:
                 orders.append(Order(product, best_ask, qty))
                 position += qty
 
-        # Sell if bid is far above fair.
+        
         if best_bid >= fair + take_edge and position > -self.LIMIT:
             bid_vol = max(0, int(od.buy_orders.get(best_bid, 0)))
             qty = min(self.QUOTE_SIZE, bid_vol, self.LIMIT + position)
@@ -295,15 +285,15 @@ class Trader:
 
         spread = best_ask - best_bid
 
-        # Quote 1 tick inside the spread when possible.
+        
         inside_bid = best_bid + 1 if spread > 1 else best_bid
         inside_ask = best_ask - 1 if spread > 1 else best_ask
 
-        # Inventory skew shifts both quotes (positive position => skew downwards).
+        
         skew = int(round(self.INV_SKEW_TICKS * position))
 
-        # Place quotes around the (skewed) fair value, but clamp inside the spread.
-        # This lets us lean bullish/bearish without crossing.
+        
+        
         target = int(round(fair)) - skew
         desired_bid = target - 1
         desired_ask = target + 1
@@ -314,7 +304,7 @@ class Trader:
         bid_px = max(best_bid, min(max_bid, desired_bid))
         ask_px = min(best_ask, max(min_ask, desired_ask))
 
-        # Fallback to inside quotes if clamping collapses the spread.
+        
         if bid_px >= ask_px:
             bid_px, ask_px = inside_bid, inside_ask
         if bid_px >= ask_px:

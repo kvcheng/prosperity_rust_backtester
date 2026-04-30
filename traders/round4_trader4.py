@@ -5,9 +5,9 @@ import math
 
 from datamodel import Order, TradingState
 
-# ---------------------------------------------------------------------------
-# Product constants (inlined)
-# ---------------------------------------------------------------------------
+
+
+
 ALL_STRIKES = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 SCALP_STRIKES = [5300, 5000, 4000, 4500, 5100, 5200]
 
@@ -15,22 +15,22 @@ VFE_LIMIT = 200
 HYDROGEL_LIMIT = 200
 OPTION_LIMIT = 300
 
-# VFE tuning
+
 VFE_MM_CLIP = 15
 VFE_MM_SKEW = 0.06
 
-# VFE flow (market-trade) signals
+
 VFE_FLOW_DECAY = 0.90
 VFE_FLOW_CLIP = 30.0
-VFE_MARK67_FAIR_COEF = 0.22  # ticks per clipped flow unit
-VFE_MARK67_SKEW_COEF = 0.17  # skew ticks per clipped flow unit
+VFE_MARK67_FAIR_COEF = 0.22  
+VFE_MARK67_SKEW_COEF = 0.17  
 VFE_MARK55_SKEW_COEF = 0.03
 
-# Options tuning
+
 TV_DEQUE_LEN = 500
 ORDER_SIZE = 10
 
-# Time-value seeds from historical data analysis
+
 TV_SEED = {
     4000: 0.0,
     4500: 0.0,
@@ -44,7 +44,7 @@ TV_SEED = {
     6500: 0.5,
 }
 
-# Minimum edge (in time-value units) required to trade each strike
+
 ENTRY_THRESH = {
     5300: 4.75,
     5000: 6.0,
@@ -252,9 +252,9 @@ class HydrogelStrategy:
         return take + self._make(od, pos, timestamp)
 
 
-# ==========================================================================
-# VELVETFRUIT_EXTRACT — slow EMA passive market maker (inlined)
-# ==========================================================================
+
+
+
 class VFEStrategy:
     PRODUCT = "VELVETFRUIT_EXTRACT"
     DEFAULT_MID = 5250.0
@@ -305,7 +305,7 @@ class VFEStrategy:
         flow_67 = max(-VFE_FLOW_CLIP, min(VFE_FLOW_CLIP, self._flow_67))
         flow_55 = max(-VFE_FLOW_CLIP, min(VFE_FLOW_CLIP, self._flow_55))
 
-        # Mark 67 is directionally informed on VFE in the round4 dataset.
+        
         fair = fair + VFE_MARK67_FAIR_COEF * flow_67
 
         flow_skew = (VFE_MARK55_SKEW_COEF * flow_55) - (VFE_MARK67_SKEW_COEF * flow_67)
@@ -330,9 +330,9 @@ class VFEStrategy:
         return orders
 
 
-# ==========================================================================
-# VEV_* options desk — time-value mean reversion (inlined)
-# ==========================================================================
+
+
+
 class OptionsDeskStrategy:
     def __init__(self, vfe: VFEStrategy):
         self.vfe = vfe

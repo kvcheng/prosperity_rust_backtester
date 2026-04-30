@@ -6,9 +6,9 @@ import math
 from datamodel import Order, TradingState
 
 
-# ---------------------------------------------------------------------------
-# Product constants
-# ---------------------------------------------------------------------------
+
+
+
 ALL_STRIKES   = [4000, 4500, 5000, 5100, 5200, 5300, 5400, 5500, 6000, 6500]
 SCALP_STRIKES = [5300, 5400]
 
@@ -17,7 +17,7 @@ HYDROGEL_LIMIT = 200
 OPTION_LIMIT   = 300
 
 
-# ── Hydrogel tuning ─────────────────────────────────────────────────────────
+
 HYDRO_EMA_ALPHA   = 0.15
 HYDRO_TAKE_EDGE   = 2
 HYDRO_SKEW        = 0.04
@@ -28,33 +28,33 @@ HYDRO_SOFT_SHORT  = -120
 HYDRO_MAX_POST    = 30
 HYDRO_HALF_SPREAD = 4
 
-# Counterparty overlay for HYDROGEL
+
 HYDRO_MARK38_WINDOW = 5000
 HYDRO_MARK38_SKEW   = 1.0
 HYDRO_MARK38_WIDEN  = 2
 
 
-# ── VFE tuning ───────────────────────────────────────────────────────────────
+
 VFE_MM_CLIP  = 15
 VFE_MM_SKEW  = 0.06
 
-# Counterparty alpha for VFE
+
 VFE_MARK67_BOOST     = 2.0
 VFE_MARK49_HIT       = -1.9
 VFE_SIGNAL_CAP       = 4.0
-VFE_DECAY_PER_TICK   = 0.995   # approximately per 100 timestamp step
+VFE_DECAY_PER_TICK   = 0.995   
 VFE_SIGNAL_MIN_TS    = 1
 
 
-# ── Options tuning ───────────────────────────────────────────────────────────
+
 TV_DEQUE_LEN = 500
 ORDER_SIZE   = 10
 
-# Guard against persistent cheap prints dragging baseline too low
+
 TV_FLOOR_RATIO = 0.70
 
 
-# Time-value seeds from historical data analysis
+
 TV_SEED = {
     4000: 0.0,
     4500: 0.0,
@@ -68,16 +68,16 @@ TV_SEED = {
     6500: 0.5,
 }
 
-# Minimum edge (in time-value units) required to trade each strike
+
 ENTRY_THRESH = {
     5300: 6.5,
     5400: 3.2,
 }
 
 
-# ===========================================================================
-# HYDROGEL_PACK – EMA fair value + trend slope + Mark 38 overlay
-# ===========================================================================
+
+
+
 class HydrogelStrategy:
     PRODUCT = "HYDROGEL_PACK"
     DEFAULT_FAIR = 9990.0
@@ -275,9 +275,9 @@ class HydrogelStrategy:
         return take + self._make(od, pos, fair, timestamp)
 
 
-# ===========================================================================
-# VELVETFRUIT_EXTRACT – EMA passive MM + Mark67 / Mark49 alpha overlay
-# ===========================================================================
+
+
+
 class VFEStrategy:
     PRODUCT     = "VELVETFRUIT_EXTRACT"
     DEFAULT_MID = 5250.0
@@ -343,9 +343,9 @@ class VFEStrategy:
         return orders
 
 
-# ===========================================================================
-# VELVETFRUIT_EXTRACT_VOUCHER – time-value mean reversion + TV guard
-# ===========================================================================
+
+
+
 class OptionsDeskStrategy:
     def __init__(self, vfe: VFEStrategy):
         self.vfe = vfe
@@ -400,9 +400,9 @@ class OptionsDeskStrategy:
         return result
 
 
-# ===========================================================================
-# Trader entry point
-# ===========================================================================
+
+
+
 class Trader:
     def __init__(self):
         self.hydrogel = HydrogelStrategy()
